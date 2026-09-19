@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NVSN Stock Sync — Run Dashboard</title>
+<style>
+  :root {
+    --ink: #16233A;
+    --paper: #F3F2ED;
+    --accent: #B23A2E;
+    --good: #2E7D46;
+    --warn: #C98A1E;
+    --text: #1B1B18;
+    --muted: #5B5B54;
+    --line: #D8D5CB;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 64px 20px; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  .logo { height: 40px; }
+  .settings-toggle {
+    background: none; border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; color: var(--muted); cursor: pointer;
+  }
+  .settings-toggle:hover { border-color: var(--ink); color: var(--ink); }
+
+  .panel {
+    background: #fff; border: 1px solid var(--line); border-radius: 8px;
+    padding: 20px; margin-bottom: 20px;
+  }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 14px 0; }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; margin-top: 12px; }
+  label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=password] {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 5px;
+    font-size: 13.5px; font-family: inherit; background: var(--paper);
+  }
+  input:focus { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+  .btn {
+    display: inline-block; margin-top: 16px; background: var(--ink); color: #fff;
+    border: none; border-radius: 6px; padding: 10px 18px; font-size: 13.5px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn:hover { background: #223752; }
+  .btn.secondary { background: none; border: 1px solid var(--line); color: var(--text); }
+  .btn.secondary:hover { border-color: var(--ink); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+
+  .status-line { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .status-line.error { color: var(--accent); }
+
+  .runs-list { display: flex; flex-direction: column; gap: 6px; }
+  .run-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px;
+    background: #fff; cursor: pointer; font-size: 13px;
+  }
+  .run-row:hover { border-color: var(--ink); }
+  .run-row.active { border-color: var(--ink); background: #EFF2F6; }
+  .run-badge {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; flex-shrink: 0;
+  }
+  .run-badge.success { background: var(--good); }
+  .run-badge.failure { background: var(--accent); }
+  .run-badge.pending { background: var(--warn); }
+  .run-meta { color: var(--muted); font-size: 12px; }
+
+  .report-header {
+    background: var(--ink); color: var(--paper); border-radius: 8px;
+    padding: 22px 24px; margin-bottom: 20px;
+  }
+  .report-header .eyebrow { font-family: monospace; font-size: 11px; letter-spacing: 0.5px; color: #B7C0CC; margin-bottom: 6px; }
+  .report-title { font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .pill { font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px; letter-spacing: 0.3px; }
+  .pill.success { background: #1E4A2E; color: #A9E4BB; }
+  .pill.failure { background: #4A1E1E; color: #F2B8B0; }
+  .pill.dryrun { background: #4A3E1E; color: #F2DCA0; }
+  .report-sub { margin-top: 8px; font-size: 13px; color: #D7DCE3; }
+  .report-sub a { color: #fff; }
+  .next-run-note { margin-top: 4px; font-size: 12.5px; color: #B7C0CC; }
+
+  .store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .store-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .store-card.failed { border-color: var(--accent); background: #FBF0EF; }
+  .store-card.haserrors { border-color: var(--warn); background: #FBF6EC; }
+  .store-card .store-name-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .store-card .store-name { font-weight: 700; font-size: 14.5px; color: var(--ink); }
+  .status-chip {
+    font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap;
+  }
+  .status-chip.ok { background: #E4F2E8; color: var(--good); }
+  .status-chip.warn { background: #FBF0DA; color: var(--warn); }
+  .status-chip.bad { background: #FBE4E2; color: var(--accent); }
+  .status-chip.skip { background: #EEEEEA; color: var(--muted); }
+  .store-card .metric { font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; padding: 3px 0; }
+  .store-card .metric b { color: var(--text); }
+  .store-card .metric.errors b { color: var(--accent); }
+  .store-card .next-update { margin-top: 8px; padding-top: 8px; border-top: 1px dotted var(--line); font-size: 12px; color: var(--muted); }
+
+  .supplier-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted var(--line); font-size: 13px; }
+  .supplier-row:last-child { border-bottom: none; }
+
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-size: 12.5px; color: var(--muted); padding: 6px 0; }
+  summary:hover { color: var(--ink); }
+  .log-lines { font-family: "SF Mono", Menlo, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-word;
+    background: var(--ink); color: #D7DCE3; padding: 14px; border-radius: 6px; max-height: 320px; overflow-y: auto; }
+  .warn-line { color: #F2DCA0; }
+  .err-line { color: #F2B8B0; }
+
+  textarea {
+    width: 100%; min-height: 140px; font-family: monospace; font-size: 12px;
+    border: 1px solid var(--line); border-radius: 5px; padding: 10px; background: var(--paper);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top-row">
+    <img class="logo" src="logo.png" alt="NVSN Stock API">
+    <button class="settings-toggle" id="toggleSettings">Settings</button>
+  </div>
+
+  <div class="panel" id="settingsPanel">
+    <h2>Connection</h2>
+    <label>GitHub personal access token</label>
+    <input type="password" id="ghToken" placeholder="ghp_...">
+    <div class="hint">
+      Stored only in this browser (localStorage) and sent only to api.github.com — never anywhere else.
+      Use a fine-grained token scoped to this one repo with read-only Actions access.
+    </div>
+    <label>Repository owner</label>
+    <input type="text" id="ghOwner" placeholder="joao-nvsn">
+    <label>Repository name</label>
+    <input type="text" id="ghRepo" placeholder="shopify-stock-feed">
+    <label>Workflow file</label>
+    <input type="text" id="ghWorkflow" placeholder="sync-inventory.yml">
+    <label>Sync schedule (cron, UTC) — used to estimate "next run"</label>
+    <input type="text" id="ghCron" placeholder="0 */4 * * *">
+    <button class="btn" id="saveConnect">Save &amp; load runs</button>
+    <div class="status-line" id="connectStatus"></div>
+  </div>
+
+  <div class="panel" id="runsPanel" style="display:none;">
+    <h2>Recent runs</h2>
+    <div class="runs-list" id="runsList"></div>
+    <button class="btn secondary" id="refreshRuns" style="margin-top:14px;">Refresh</button>
+  </div>
+
+  <div id="reportContainer"></div>
+
+  <div class="panel">
+    <h2>Or paste a log manually</h2>
+    <div class="hint" style="margin-bottom:10px;">
+      Use this if the automatic fetch above doesn't work in your browser — copy the full text from a
+      GitHub Actions "Run inventory sync" step log and paste it here.
+    </div>
+    <textarea id="pasteLog" placeholder="Paste log text here..."></textarea>
+    <button class="btn secondary" id="parsePasted">Parse pasted log</button>
+  </div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+// ---------- settings persistence ----------
+function loadSettings() {
+  $('ghToken').value = localStorage.getItem('nvsn_gh_token') || '';
+  $('ghOwner').value = localStorage.getItem('nvsn_gh_owner') || 'joao-nvsn';
+  $('ghRepo').value = localStorage.getItem('nvsn_gh_repo') || 'shopify-stock-feed';
+  $('ghWorkflow').value = localStorage.getItem('nvsn_gh_workflow') || 'sync-inventory.yml';
+  $('ghCron').value = localStorage.getItem('nvsn_gh_cron') || '0 */4 * * *';
+}
+function saveSettings() {
+  localStorage.setItem('nvsn_gh_token', $('ghToken').value.trim());
+  localStorage.setItem('nvsn_gh_owner', $('ghOwner').value.trim());
+  localStorage.setItem('nvsn_gh_repo', $('ghRepo').value.trim());
+  localStorage.setItem('nvsn_gh_workflow', $('ghWorkflow').value.trim());
+  localStorage.setItem('nvsn_gh_cron', $('ghCron').value.trim());
+}
+
+$('toggleSettings').addEventListener('click', () => {
+  const p = $('settingsPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+});
+
+// ---------- GitHub API ----------
+async function ghFetch(path) {
+  const token = localStorage.getItem('nvsn_gh_token');
+  const resp = await fetch('https://api.github.com' + path, {
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json'
+    }
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    throw new Error('GitHub API ' + resp.status + ': ' + resp.statusText + (body ? ' — ' + body.slice(0, 200) : ''));
+  }
+  return resp.json();
+}
+
+async function ghFetchText(path) {
+  const token = localStorage.getItem('nvsn_gh_token');
+  const resp = await fetch('https://api.github.com' + path, {
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json'
+    }
+  });
+  if (!resp.ok) {
+    throw new Error('GitHub API ' + resp.status + ' fetching logs — the run may be too old, or this browser blocked the request.');
+  }
+  return resp.text();
+}
+
+async function loadRuns() {
+  const owner = $('ghOwner').value.trim();
+  const repo = $('ghRepo').value.trim();
+  const workflow = $('ghWorkflow').value.trim();
+  $('connectStatus').textContent = 'Loading runs…';
+  $('connectStatus').classList.remove('error');
+  try {
+    const data = await ghFetch(`/repos/${owner}/${repo}/actions/workflows/${workflow}/runs?per_page=10`);
+    renderRunsList(data.workflow_runs || []);
+    $('connectStatus').textContent = `Loaded ${ (data.workflow_runs||[]).length } recent run(s).`;
+    $('runsPanel').style.display = 'block';
+    if (data.workflow_runs && data.workflow_runs.length) {
+      selectRun(data.workflow_runs[0], owner, repo);
+    }
+  } catch (err) {
+    $('connectStatus').textContent = 'Could not load runs: ' + err.message;
+    $('connectStatus').classList.add('error');
+  }
+}
+
+function renderRunsList(runs) {
+  const list = $('runsList');
+  list.innerHTML = '';
+  runs.forEach((run) => {
+    const row = document.createElement('div');
+    row.className = 'run-row';
+    row.dataset.runId = run.id;
+    const badgeClass = run.status !== 'completed' ? 'pending' : (run.conclusion === 'success' ? 'success' : 'failure');
+    const when = new Date(run.created_at).toLocaleString();
+    row.innerHTML = `
+      <span><span class="run-badge ${badgeClass}"></span>Run #${run.run_number}</span>
+      <span class="run-meta">${when}</span>
+    `;
+    row.addEventListener('click', () => {
+      document.querySelectorAll('.run-row').forEach(r => r.classList.remove('active'));
+      row.classList.add('active');
+      selectRun(run, $('ghOwner').value.trim(), $('ghRepo').value.trim());
+    });
+    list.appendChild(row);
+  });
+  if (list.firstChild) list.firstChild.classList.add('active');
+}
+
+async function selectRun(run, owner, repo) {
+  $('reportContainer').innerHTML = '<div class="panel"><span class="status-line">Loading run #' + run.run_number + '…</span></div>';
+  try {
+    const jobsData = await ghFetch(`/repos/${owner}/${repo}/actions/runs/${run.id}/jobs`);
+    const jobs = jobsData.jobs || [];
+    const job = jobs.find(j => /sync/i.test(j.name)) || jobs[0];
+    if (!job) throw new Error('No jobs found for this run.');
+    const logText = await ghFetchText(`/repos/${owner}/${repo}/actions/jobs/${job.id}/logs`);
+    const parsed = parseLog(logText);
+    parsed.runNumber = run.run_number;
+    parsed.runUrl = run.html_url;
+    parsed.runWhen = run.created_at;
+    parsed.jobConclusion = job.conclusion;
+    renderReport(parsed);
+  } catch (err) {
+    $('reportContainer').innerHTML = `<div class="panel"><span class="status-line error">Couldn't load this run's log automatically: ${err.message}<br><br>
+      Try the manual paste option below instead — open the run on GitHub, copy the "Run inventory sync" step's log text, and paste it in.</span></div>`;
+  }
+}
+
+// ---------- next scheduled run ----------
+// Supports the common "every N hours, on the hour" shape used by this
+// project's workflow (e.g. "0 */4 * * *"). Falls back to null (hidden)
+// for anything else, rather than guessing wrong.
+function nextRunEstimate(cronExpr) {
+  const m = /^\s*0\s+\*\/(\d+)\s+\*\s+\*\s+\*\s*$/.exec(cronExpr || '');
+  if (!m) return null;
+  const everyHours = parseInt(m[1], 10);
+  if (!everyHours || everyHours <= 0 || everyHours > 24) return null;
+  const msPerHour = 3600000;
+  const now = Date.now();
+  const nextBlockHours = Math.ceil((now / msPerHour) / everyHours) * everyHours;
+  let nextMs = nextBlockHours * msPerHour;
+  if (nextMs <= now) nextMs += everyHours * msPerHour;
+  return { nextDate: new Date(nextMs), diffMs: nextMs - now, everyHours };
+}
+
+function formatDiff(diffMs) {
+  if (diffMs == null) return null;
+  const totalMin = Math.max(0, Math.round(diffMs / 60000));
+  const h = Math.floor(totalMin / 60);
+  const mnt = totalMin % 60;
+  if (h === 0) return `${mnt}m`;
+  return `${h}h ${mnt}m`;
+}
+
+// ---------- log parsing ----------
+// Matches the real output of sync.py / shopify_client.py — not a
+// hypothetical summary format. Key log lines this relies on:
+//   === Store 'NAME' (shop.myshopify.com) ===
+//   Built <field> lookup: N unique value(s) covering M variants (...)
+//   Store 'NAME': N assigned SKUs had no matching Shopify barcode ...
+//   Updated batch of N items (offset N)
+//   [DRY RUN] Would update batch of N items: [...]
+//   [ERROR] Errors updating batch starting at index N: [...]
+//   Dropping N flagged item(s) from batch at offset N and retrying the remaining M item(s)...
+//   Retry succeeded: updated M item(s) from batch at offset N (after dropping N flagged item(s))
+//   Retry for batch at offset N still had errors: [...]
+//   Could not identify which item(s) caused the error above — skipping all N item(s) in this batch.
+//   Supplier 'NAME' (id): parsed N valid rows
+function parseLog(text) {
+  const isDryRun = /DRY RUN mode enabled/.test(text);
+  const hasTraceback = /Traceback \(most recent call last\)/.test(text);
+  const hasRunFailedLine = /\[ERROR\][^\n]*Run completed with failures/i.test(text);
+
+  // Split into per-store chunks using the "=== Store 'NAME' (domain) ===" markers.
+  const storeHeaderRe = /=== Store '([^']+)'(?:\s*\(([^)]*)\))? ===/g;
+  const headers = [];
+  let hm;
+  while ((hm = storeHeaderRe.exec(text)) !== null) {
+    headers.push({ name: hm[1], domain: hm[2] || '', start: hm.index, contentStart: storeHeaderRe.lastIndex });
+  }
+
+  const stores = headers.map((h, i) => {
+    const end = i + 1 < headers.length ? headers[i + 1].start : text.length;
+    const chunk = text.slice(h.contentStart, end);
+    return parseStoreChunk(h.name, h.domain, chunk, isDryRun);
+  });
+
+  // Paused/cancelled stores are skipped before the sync loop even attempts
+  // them, so they never get a "=== Store ===" section at all — pick those
+  // up separately wherever the registry logs them.
+  const skippedRe = /Store '([^']+)':\s*skipped,\s*status=('|&#39;)([^'&]+)\2/g;
+  const seenLabels = new Set(stores.map(s => s.label));
+  let sm;
+  while ((sm = skippedRe.exec(text)) !== null) {
+    if (seenLabels.has(sm[1])) continue;
+    stores.push({
+      label: sm[1], domain: '', status: 'skip',
+      statusLabel: `Skipped (${sm[3]})`,
+      recordsUpdated: null, recordsErrored: null,
+      matched: null, totalAssigned: null, unmatchedNoBarcode: null,
+    });
+    seenLabels.add(sm[1]);
+  }
+
+  // Supplier parse lines
+  const suppliers = [];
+  const supplierRe = /Supplier '([^']+)'[^:]*: parsed (\d+) valid rows/g;
+  let m;
+  while ((m = supplierRe.exec(text)) !== null) {
+    suppliers.push({ label: m[1], rows: parseInt(m[2], 10) });
+  }
+
+  // Warnings
+  const warningLines = [];
+  text.split('\n').forEach(line => {
+    if (/\[WARNING\]/.test(line) && !/Would update batch/.test(line)) {
+      warningLines.push(line.replace(/^.*\[WARNING\]\s*/, '').trim());
+    }
+  });
+  const retryCount = warningLines.filter(l => /Transient error talking to Google Sheets/.test(l)).length;
+
+  const anyStoreFailed = stores.some(s => s.status === 'bad');
+  const overallFailed = hasTraceback || hasRunFailedLine || anyStoreFailed;
+
+  return { isDryRun, overallFailed, stores, suppliers, warningLines, retryCount, rawLength: text.length, rawText: text };
+}
+
+function parseStoreChunk(label, domain, chunk, isDryRun) {
+  let recordsUpdated = 0;
+  let recordsErrored = 0;
+  let matchedTotalFromLookup = null; // "Built lookup: ... covering M variants" — total catalog side, informational only
+  let unmatchedNoBarcode = null;     // assigned SKUs with no match at all — expected/normal, NOT an error
+  let hadUnresolvedError = false;
+  let pendingDrop = null; // { offset, remaining }
+
+  const lines = chunk.split('\n');
+  for (const line of lines) {
+    let m;
+
+    if ((m = /Built \w+ lookup: (\d+) unique value\(s\) covering (\d+) variants/.exec(line))) {
+      matchedTotalFromLookup = parseInt(m[2], 10);
+      continue;
+    }
+    if ((m = /:\s*(\d+) assigned SKUs had no matching Shopify barcode/.exec(line))) {
+      unmatchedNoBarcode = parseInt(m[1], 10);
+      continue;
+    }
+    if (isDryRun && (m = /\[DRY RUN\] Would update batch of (\d+) items/.exec(line))) {
+      recordsUpdated += parseInt(m[1], 10);
+      continue;
+    }
+    if (!isDryRun && (m = /Updated batch of (\d+) items \(offset \d+\)/.exec(line))) {
+      recordsUpdated += parseInt(m[1], 10);
+      continue;
+    }
+    if (/\[ERROR\] Errors updating batch starting at index \d+:/.test(line)) {
+      hadUnresolvedError = true; // provisional — cleared below if a retry fully recovers it
+      continue;
+    }
+    if ((m = /Dropping (\d+) flagged item\(s\) from batch at offset (\d+) and retrying the remaining (\d+) item\(s\)/.exec(line))) {
+      recordsErrored += parseInt(m[1], 10); // dropped items never get applied, regardless of retry outcome
+      pendingDrop = { offset: m[2], remaining: parseInt(m[3], 10) };
+      continue;
+    }
+    if ((m = /Retry succeeded: updated (\d+) item\(s\) from batch at offset (\d+)/.exec(line))) {
+      recordsUpdated += parseInt(m[1], 10);
+      pendingDrop = null;
+      hadUnresolvedError = false;
+      continue;
+    }
+    if ((m = /Retry for batch at offset (\d+) still had errors:/.exec(line))) {
+      if (pendingDrop) { recordsErrored += pendingDrop.remaining; pendingDrop = null; }
+      continue;
+    }
+    if ((m = /skipping all (\d+) item\(s\) in this batch/.exec(line))) {
+      recordsErrored += parseInt(m[1], 10);
+      continue;
+    }
+  }
+
+  const totalAssigned = (unmatchedNoBarcode != null && (recordsUpdated + recordsErrored) >= 0)
+    ? unmatchedNoBarcode + recordsUpdated + recordsErrored
+    : null;
+  const matched = recordsUpdated + recordsErrored; // items that DID match a barcode and were attempted
+
+  let status, statusLabel;
+  if (hadUnresolvedError) {
+    status = 'bad'; statusLabel = 'Failed';
+  } else if (recordsErrored > 0) {
+    status = 'warn'; statusLabel = 'Completed with errors';
+  } else {
+    status = 'ok'; statusLabel = isDryRun ? 'Dry run OK' : 'Success';
+  }
+
+  return {
+    label, domain, status, statusLabel,
+    recordsUpdated, recordsErrored,
+    matched, totalAssigned, unmatchedNoBarcode,
+  };
+}
+
+function renderReport(p) {
+  // Prefer GitHub's own conclusion for the run when we have it (live fetch) —
+  // it's authoritative. Fall back to log-text heuristics for pasted logs.
+  let statusClass, statusLabel;
+  if (p.jobConclusion) {
+    statusClass = p.jobConclusion === 'success' ? (p.isDryRun ? 'dryrun' : 'success') : 'failure';
+    statusLabel = p.jobConclusion === 'success' ? (p.isDryRun ? 'Dry run' : 'Success') : 'Failed';
+  } else {
+    statusClass = p.overallFailed ? 'failure' : (p.isDryRun ? 'dryrun' : 'success');
+    statusLabel = p.overallFailed ? 'Failed' : (p.isDryRun ? 'Dry run' : 'Success');
+  }
+  const runLine = p.runNumber ? `Run #${p.runNumber} — ${new Date(p.runWhen).toLocaleString()}` : 'Pasted log';
+  const runLink = p.runUrl ? ` &middot; <a href="${p.runUrl}" target="_blank" rel="noopener">View on GitHub</a>` : '';
+
+  const cronExpr = $('ghCron') ? $('ghCron').value.trim() : '';
+  const nextRun = nextRunEstimate(cronExpr);
+  const nextRunText = nextRun ? `Next scheduled run in ${formatDiff(nextRun.diffMs)} (${nextRun.nextDate.toLocaleString()})` : null;
+
+  let storesHtml = '';
+  if (p.stores.length === 0) {
+    storesHtml = '<div class="hint">No per-store sections found in this log.</div>';
+  } else {
+    storesHtml = '<div class="store-grid">' + p.stores.map(s => {
+      const cardClass = s.status === 'bad' ? ' failed' : (s.status === 'warn' ? ' haserrors' : '');
+      const chipClass = s.status === 'bad' ? 'bad' : (s.status === 'warn' ? 'warn' : (s.status === 'skip' ? 'skip' : 'ok'));
+
+      if (s.status === 'skip') {
+        return `<div class="store-card">
+          <div class="store-name-row">
+            <span class="store-name">${escapeHtml(s.label)}</span>
+            <span class="status-chip ${chipClass}">${escapeHtml(s.statusLabel)}</span>
+          </div>
+          ${nextRunText ? `<div class="next-update">${escapeHtml(nextRunText)}</div>` : ''}
+        </div>`;
+      }
+
+      const pct = s.totalAssigned ? ((s.matched / s.totalAssigned) * 100).toFixed(2) : '—';
+      const updatedLabel = p.isDryRun ? 'Would update' : 'Records updated';
+      return `<div class="store-card${cardClass}">
+        <div class="store-name-row">
+          <span class="store-name">${escapeHtml(s.label)}</span>
+          <span class="status-chip ${chipClass}">${escapeHtml(s.statusLabel)}</span>
+        </div>
+        <div class="metric"><span>Matched (has barcode)</span><b>${s.matched}${s.totalAssigned ? ` / ${s.totalAssigned} (${pct}%)` : ''}</b></div>
+        <div class="metric"><span>${updatedLabel}</span><b>${s.recordsUpdated}</b></div>
+        <div class="metric errors"><span>Records with errors</span><b>${s.recordsErrored}</b></div>
+        ${nextRunText ? `<div class="next-update">${escapeHtml(nextRunText)}</div>` : ''}
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  let suppliersHtml = '';
+  if (p.suppliers.length) {
+    suppliersHtml = `<div class="panel"><h2>Suppliers parsed</h2>` +
+      p.suppliers.map(s => `<div class="supplier-row"><span>${escapeHtml(s.label)}</span><b>${s.rows.toLocaleString()} rows</b></div>`).join('') +
+      `</div>`;
+  }
+
+  let warnHtml = '';
+  if (p.warningLines.length) {
+    const preview = p.warningLines.slice(0, 50).map(l => {
+      const cls = /error/i.test(l) ? 'err-line' : 'warn-line';
+      return `<span class="${cls}">${escapeHtml(l)}</span>`;
+    }).join('\n');
+    const retryNote = p.retryCount ? `<div class="hint">Includes ${p.retryCount} transient Google Sheets error(s) that were automatically retried and recovered.</div>` : '';
+    warnHtml = `<div class="panel"><h2>Warnings (${p.warningLines.length})</h2>${retryNote}
+      <details><summary>Show warning lines</summary><div class="log-lines">${preview}</div></details>
+    </div>`;
+  }
+
+  $('reportContainer').innerHTML = `
+    <div class="report-header">
+      <div class="eyebrow">STOCK MANIFEST &mdash; SYNC RUN REPORT</div>
+      <div class="report-title">
+        <span class="pill ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="report-sub">${runLine}${runLink}</div>
+      ${nextRunText ? `<div class="next-run-note">${escapeHtml(nextRunText)}</div>` : ''}
+    </div>
+    ${storesHtml}
+    ${suppliersHtml}
+    ${warnHtml}
+    <div class="panel">
+      <details><summary>Show full raw log (${p.rawLength.toLocaleString()} characters)</summary>
+        <div class="log-lines">${escapeHtml(p.rawText.slice(0, 200000))}</div>
+      </details>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ---------- wiring ----------
+$('saveConnect').addEventListener('click', () => {
+  saveSettings();
+  loadRuns();
+});
+$('refreshRuns').addEventListener('click', loadRuns);
+$('parsePasted').addEventListener('click', () => {
+  const text = $('pasteLog').value;
+  if (!text.trim()) return;
+  const parsed = parseLog(text);
+  renderReport(parsed);
+});
+
+loadSettings();
+if (localStorage.getItem('nvsn_gh_token')) {
+  loadRuns();
+} else {
+  $('settingsPanel').style.display = 'block';
+}
+</script>
+</body>
+</html>
